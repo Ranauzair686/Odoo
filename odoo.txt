@@ -45,3 +45,61 @@ Create a /jobs route
 List all active job posts
 Render them on your website
 Allow public access to job listings
+
+
+
+
+
+
+
+
+
+
+
+no in job post i can add multiple jobs like 13 to 16 now if i want to show that on my website like i am on myjob.com how should i show my job post from odoo to thereEditTo display your Odoo job posts on a website, you'll need to create a few components:
+
+Website Controllers:
+
+pythonCopyfrom odoo import http
+from odoo.http import request
+
+class JobPostWebsite(http.Controller):
+    @http.route('/jobs', type='http', auth='public', website=True)
+    def jobs_list(self):
+        jobs = request.env['hr.job.post'].sudo().search([('active', '=', True)])
+        return request.render('your_module.jobs_template', {
+            'jobs': jobs
+        })
+
+QWeb Template (in XML):
+
+xmlCopy<template id="jobs_template" name="Job Listings">
+    <t t-call="website.layout">
+        <div class="container">
+            <h1>Current Job Openings</h1>
+            <t t-foreach="jobs" t-as="job">
+                <div class="job-card">
+                    <h2><t t-esc="job.name"/></h2>
+                    <p><t t-esc="job.description"/></p>
+                    <a href="/job/<t t-esc="job.id"/>">View Details</a>
+                </div>
+            </t>
+        </div>
+    </t>
+</template>
+
+Add website configuration in your module's __manifest__.py:
+
+pythonCopy{
+    'name': 'Job Post Module',
+    'depends': ['website', 'hr'],
+    'data': [
+        'views/job_post_website_template.xml',
+    ],
+}
+This approach will:
+
+Create a /jobs route
+List all active job posts
+Render them on your website
+Allow public access to job listings
