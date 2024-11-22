@@ -1,238 +1,47 @@
-I'll help you understand how to customize the recruitment module in Odoo 16. Let's break this down step by step.
+no in job post i can add multiple jobs like 13 to 16 now if i want to show that on my website like i am on myjob.com how should i show my job post from odoo to thereEditTo display your Odoo job posts on a website, you'll need to create a few components:
 
-First, create a custom module that will inherit from the recruitment module (hr_recruitment):
-# __manifest__.py
-{
-    'name': 'Custom Recruitment',
-    'version': '1.0',
-    'depends': ['hr_recruitment'],
-    'description': 'Custom recruitment module extension',
-    'category': 'Human Resources',
+Website Controllers:
+
+pythonCopyfrom odoo import http
+from odoo.http import request
+
+class JobPostWebsite(http.Controller):
+    @http.route('/jobs', type='http', auth='public', website=True)
+    def jobs_list(self):
+        jobs = request.env['hr.job.post'].sudo().search([('active', '=', True)])
+        return request.render('your_module.jobs_template', {
+            'jobs': jobs
+        })
+
+QWeb Template (in XML):
+
+xmlCopy<template id="jobs_template" name="Job Listings">
+    <t t-call="website.layout">
+        <div class="container">
+            <h1>Current Job Openings</h1>
+            <t t-foreach="jobs" t-as="job">
+                <div class="job-card">
+                    <h2><t t-esc="job.name"/></h2>
+                    <p><t t-esc="job.description"/></p>
+                    <a href="/job/<t t-esc="job.id"/>">View Details</a>
+                </div>
+            </t>
+        </div>
+    </t>
+</template>
+
+Add website configuration in your module's __manifest__.py:
+
+pythonCopy{
+    'name': 'Job Post Module',
+    'depends': ['website', 'hr'],
     'data': [
-        'views/job_position_view.xml',
-        'security/ir.model.access.csv',
+        'views/job_post_website_template.xml',
     ],
-    'installable': True,
-    'application': False,
 }
+This approach will:
 
-Common customization approaches:
-
-a. Extend existing models to add new fields:
-models/hr_job.py
-from odoo import models, fields, api
-
-class HrJob(models.Model):
-    _inherit = 'hr.job'
-    
-    # Add new fields
-    required_skills = fields.Text(string='Required Skills')
-    salary_range_from = fields.Float(string='Salary Range From')
-    salary_range_to = fields.Float(string='Salary Range To')
-    experience_required = fields.Integer(string='Experience Required (years)')
-
-
-b. Modify the application form (hr.applicant):
-models/hr_applicant.py
-class HrApplicant(models.Model):
-    _inherit = 'hr.applicant'
-    
-    education_level = fields.Selection([
-        ('bachelor', 'Bachelor'),
-        ('master', 'Master'),
-        ('phd', 'PhD')
-    ], string='Education Level')
-    current_salary = fields.Float(string='Current Salary')
-    expected_salary = fields.Float(string='Expected Salary')
-    notice_period = fields.Integer(string='Notice Period (days)')
-
-Create or modify views to display new fields:
-
-<!-- views/job_position_view.xml -->
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <record id="view_hr_job_form_inherit" model="ir.ui.view">
-        <field name="name">hr.job.form.inherit</field>
-        <field name="model">hr.job</field>
-        <field name="inherit_id" ref="hr.view_hr_job_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="//notebook" position="inside">
-                <page string="Additional Information">
-                    <group>
-                        <field name="required_skills"/>
-                        <field name="salary_range_from"/>
-                        <field name="salary_range_to"/>
-                        <field name="experience_required"/>
-                    </group>
-                </page>
-            </xpath>
-        </field>
-    </record>
-</odoo>
-
-Add custom business logic through methods:
-
-models/hr_applicant.py
-class HrApplicant(models.Model):
-    _inherit = 'hr.applicant'
-    
-    @api.onchange('job_id')
-    def _onchange_job_id(self):
-        if self.job_id:
-            # Auto-fill some fields based on job position
-            self.expected_salary = self.job_id.salary_range_from
-            
-    def action_send_custom_email(self):
-        # Custom email sending logic
-        template = self.env.ref('custom_recruitment.email_template_custom')
-        for applicant in self:
-            template.send_mail(applicant.id, force_send=True)
-
-Add security rules if needed:
-
-xmlCopy<!-- security/security.xml -->
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <record id="custom_recruitment_rule" model="ir.rule">
-        <field name="name">Custom Recruitment: HR Officers Only</field>
-        <field name="model_id" ref="model_hr_applicant"/>
-        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
-        <field name="groups" eval="[(4, ref('hr_recruitment.group_hr_recruitment_user'))]"/>
-    </record>
-</odoo>
-
-If you need custom stages in recruitment:
-
-pythonCopy# data/recruitment_stages.xml
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <record id="stage_screening" model="hr.recruitment.stage">
-        <field name="name">Initial Screening</field>
-        <field name="sequence">1</field>
-    </record>
-    <record id="stage_technical" model="hr.recruitment.stage">
-        <field name="name">Technical Round</field>
-        <field name="sequence">2</field>
-    </record>
-</odoo>
-Key points to remember when customizing:
-
-Always inherit from existing models/views rather than modifying them directly
-Follow Odoo's security guidelines when adding new features
-Use proper dependencies in the manifest file
-Test thoroughly in a development environment before deploying
-Document your customizations
-
-Would you like me to elaborate on any specific aspect of the customization, such as:
-
-Adding custom reports
-Creating custom kanban views
-Adding automated actions
-Implementing custom workflows
-Adding email templates
-Creating custom dashboard?
- CopyRetryClaude does not have the ability to run the code it generates yet.RUso when i will run this custom module now will this features be added to that module or is the completely seperate module with hr_recruitment features and also our custom addedEditLet me explain how this works in Odoo:
-When you create this custom module and install it, it will extend the existing hr_recruitment module, not create a separate instance. Here's how it works:
-
-Module Installation Process:
-
-pythonCopy# When your manifest has
-{
-    'depends': ['hr_recruitment'],  # This tells Odoo this module extends hr_recruitment
-}
-
-The original hr_recruitment module remains installed
-Your custom module adds/modifies features on top of it
-All existing data in hr_recruitment stays intact
-Your new fields and features become available in the existing views/forms
-
-
-Real Example of How Extension Works:
-
-Original HR Job Position Form:
-xmlCopy<!-- Original hr_recruitment view -->
-<record id="view_hr_job_form" model="ir.ui.view">
-    <field name="model">hr.job</field>
-    <field name="arch" type="xml">
-        <form>
-            <field name="name"/>
-            <field name="department_id"/>
-            <!-- other existing fields -->
-        </form>
-    </field>
-</record>
-After your custom module installation:
-xmlCopy<!-- Your extended view adds to the existing one -->
-<record id="view_hr_job_form_inherit" model="ir.ui.view">
-    <field name="model">hr.job</field>
-    <field name="inherit_id" ref="hr.view_hr_job_form"/>  <!-- This links to original view -->
-    <field name="arch" type="xml">
-        <xpath expr="//field[@name='department_id']" position="after">
-            <field name="required_skills"/>
-            <field name="salary_range_from"/>
-        </xpath>
-    </field>
-</record>
-
-Database Impact:
-
-sqlCopy-- Original hr.job table
-CREATE TABLE hr_job (
-    id serial,
-    name varchar,
-    department_id integer
-);
-
--- After your module installation, same table gets new columns
-ALTER TABLE hr_job ADD COLUMN required_skills text;
-ALTER TABLE hr_job ADD COLUMN salary_range_from float;
-
-Practical Example of Usage:
-
-pythonCopy# This code will work with both original and custom fields
-job = env['hr.job'].create({
-    'name': 'Software Developer',          # Original field
-    'department_id': 1,                    # Original field
-    'required_skills': 'Python, Odoo',     # Your custom field
-    'salary_range_from': 50000            # Your custom field
-})
-
-Menu Structure:
-
-
-Your custom features appear within the existing Recruitment menu
-You can add new menu items that will appear alongside existing ones:
-
-xmlCopy<record id="action_custom_recruitment" model="ir.actions.act_window">
-    <field name="name">Custom Recruitment View</field>
-    <field name="res_model">hr.job</field>
-    <field name="view_mode">tree,form</field>
-</record>
-
-<menuitem 
-    id="menu_custom_recruitment"
-    name="Custom Recruitment"
-    parent="hr_recruitment.menu_hr_recruitment_root"
-    action="action_custom_recruitment"
-    sequence="20"/>
-To verify it's working:
-
-Install your module:
-
-bashCopy# From Odoo shell
-env['ir.module.module'].search([('name', '=', 'your_custom_module')]).button_immediate_install()
-
-Check the modifications:
-
-pythonCopy# From Odoo shell
-job_fields = env['hr.job'].fields_get()
-print('required_skills' in job_fields)  # Should print True
-Remember:
-
-All existing recruitment data remains unchanged
-Your new features become available immediately after installation
-Users don't need to learn a new interface
-Existing workflows remain the same but with added features
-You can uninstall your custom module without affecting the base recruitment data
-
-Would you like me to provide more specific examples or explain any particular aspect in more detail?
+Create a /jobs route
+List all active job posts
+Render them on your website
+Allow public access to job listings
